@@ -120,27 +120,17 @@ app.post("/api/admin/generate-meta", async (c) => {
   }
 });
 
-import { createHonoServer } from "react-router-hono-server/cloudflare";
+import * as build from "virtual:react-router/server-build";
 
-// Export a wrapped Hono app using a lazy initialization pattern
-// This prevents Vite from evaluating the `react-router-hono-server` virtual modules
-// too early during the client build phase on Cloudflare Pages.
-const server = createHonoServer({
-  app,
-  getLoadContext: (c, options) => {
-    return {
-      cloudflare: {
-        env: c.env as any,
-        ctx: c.executionCtx,
-        user: c.get("user"), // Pass user context to Remix Loaders
-      },
-    };
-  },
+// Catch-all React Router handler
+app.all("*", (c) => {
+  return createRequestHandler(build as any, process.env.NODE_ENV)(c.req.raw, {
+    cloudflare: {
+      env: c.env as any,
+      ctx: c.executionCtx,
+      user: c.get("user"), // Pass user context to Remix Loaders
+    },
+  });
 });
 
-export default {
-  fetch: async (request: Request, env: Env, ctx: ExecutionContext) => {
-    const s = await server;
-    return s.fetch(request, env, ctx);
-  },
-};
+export default app;

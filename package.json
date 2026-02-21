@@ -29,15 +29,14 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router": "^7.13.0",
-    "react-router-hono-server": "^2.25.0",
     "remark-frontmatter": "^5.0.0",
     "remark-mdx-frontmatter": "^5.2.0",
     "tailwind-merge": "^3.5.0",
     "three": "^0.183.1"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^0.1.1",
     "@cloudflare/workers-types": "^4.20260227.0",
-    "@hono/vite-dev-server": "^0.25.0",
     "@react-router/dev": "^7.13.0",
     "@tailwindcss/vite": "^4.1.13",
     "@types/node": "^22",
