@@ -120,17 +120,18 @@ app.post("/api/admin/generate-meta", async (c) => {
   }
 });
 
+import { createHonoServer } from "react-router-hono-server/cloudflare";
 import * as build from "virtual:react-router/server-build";
 
-// Catch-all React Router handler
-app.all("*", (c) => {
-  return createRequestHandler(build as any, process.env.NODE_ENV)(c.req.raw, {
-    cloudflare: {
-      env: c.env as any,
-      ctx: c.executionCtx,
-      user: c.get("user"), // Pass user context to Remix Loaders
-    },
-  });
+export default await createHonoServer({
+  app,
+  getLoadContext(c, options) {
+    return {
+      cloudflare: {
+        env: c.env as any,
+        ctx: c.executionCtx,
+        user: c.get("user"), // Pass user context to Remix Loaders
+      },
+    };
+  },
 });
-
-export default app;
