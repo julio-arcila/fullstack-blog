@@ -4,8 +4,8 @@ import { createRequestHandler } from "react-router";
 import { getCookie, setCookie } from "hono/cookie";
 import { sign, verify } from "hono/jwt";
 import { drizzle } from "drizzle-orm/d1";
-import { eq } from "drizzle-orm";
-import { users } from "./app/db/schema";
+import { eq, sql } from "drizzle-orm";
+import { users, postMetrics, subscribers } from "./app/db/schema";
 import { verifyPassword } from "./app/utils/crypto";
 
 import type {
@@ -17,7 +17,7 @@ import type {
 
 // Type definition for Env binding
 type Env = {
-  DB: D1Database;
+  fullstack_blog_db: D1Database;
   JWT_SECRET: string;
   AI: any;
   MEDIA: R2Bucket;
@@ -60,7 +60,7 @@ app.use("*", async (c, next) => {
 // Login Route
 app.post("/api/auth/login", async (c) => {
   const { email, password } = await c.req.json();
-  const db = drizzle(c.env.DB);
+  const db = drizzle(c.env.fullstack_blog_db);
 
   const userRecord = await db
     .select()
@@ -118,6 +118,104 @@ app.post("/api/admin/generate-meta", async (c) => {
   } catch (err) {
     return c.json({ error: "AI generation failed" }, 500);
   }
+});
+
+// ---- Post Metrics: Track Views & Likes ----
+app.post("/api/metrics/view", async (c) => {
+  const { slug } = await c.req.json();
+  if (!slug) return c.json({ error: "slug required" }, 400);
+
+  const db = drizzle(c.env.fullstack_blog_db);
+  const existing = await db
+    .select()
+    .from(postMetrics)
+    .where(eq(postMetrics.slug, slug))
+    .get();
+
+  if (existing) {
+    await db
+      .update(postMetrics)
+      .set({ views: sql`${postMetrics.views} + 1`, updatedAt: new Date() })
+      .where(eq(postMetrics.slug, slug));
+  } else {
+    await db
+      .insert(postMetrics)
+      .values({ slug, views: 1, likes: 0, updatedAt: new Date() });
+  }
+
+  const updated = await db
+    .select()
+    .from(postMetrics)
+    .where(eq(postMetrics.slug, slug))
+    .get();
+  return c.json({ views: updated?.views ?? 1, likes: updated?.likes ?? 0 });
+});
+
+app.post("/api/metrics/like", async (c) => {
+  const { slug } = await c.req.json();
+  if (!slug) return c.json({ error: "slug required" }, 400);
+
+  const db = drizzle(c.env.fullstack_blog_db);
+  const existing = await db
+    .select()
+    .from(postMetrics)
+    .where(eq(postMetrics.slug, slug))
+    .get();
+
+  if (existing) {
+    await db
+      .update(postMetrics)
+      .set({ likes: sql`${postMetrics.likes} + 1`, updatedAt: new Date() })
+      .where(eq(postMetrics.slug, slug));
+  } else {
+    await db
+      .insert(postMetrics)
+      .values({ slug, views: 0, likes: 1, updatedAt: new Date() });
+  }
+
+  const updated = await db
+    .select()
+    .from(postMetrics)
+    .where(eq(postMetrics.slug, slug))
+    .get();
+  return c.json({ views: updated?.views ?? 0, likes: updated?.likes ?? 1 });
+});
+
+app.get("/api/metrics/:slug", async (c) => {
+  const slug = c.req.param("slug");
+  const db = drizzle(c.env.fullstack_blog_db);
+  const metrics = await db
+    .select()
+    .from(postMetrics)
+    .where(eq(postMetrics.slug, slug))
+    .get();
+  return c.json(metrics ?? { slug, views: 0, likes: 0 });
+});
+
+// ---- Newsletter Subscribers ----
+app.post("/api/subscribe", async (c) => {
+  const { email, name } = await c.req.json();
+  if (!email) return c.json({ error: "email required" }, 400);
+
+  const db = drizzle(c.env.fullstack_blog_db);
+
+  // Check if already subscribed
+  const existing = await db
+    .select()
+    .from(subscribers)
+    .where(eq(subscribers.email, email))
+    .get();
+  if (existing) return c.json({ message: "Already subscribed" }, 200);
+
+  await db.insert(subscribers).values({
+    id: crypto.randomUUID(),
+    email,
+    name: name || null,
+    subscribedAt: new Date(),
+    confirmed: false,
+  });
+
+  return c.json({ message: "Subscribed successfully" }, 201);
 });
 
 import { createHonoServer } from "react-router-hono-server/cloudflare";

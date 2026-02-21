@@ -68,3 +68,20 @@ export const postTags = sqliteTable(
     pk: primaryKey({ columns: [t.postId, t.tagId] }),
   }),
 );
+
+// ---- Analytics & Monetization ----
+
+export const postMetrics = sqliteTable("post_metrics", {
+  slug: text("slug").primaryKey(),
+  views: integer("views").notNull().default(0),
+  likes: integer("likes").notNull().default(0),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+export const subscribers = sqliteTable("subscribers", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  name: text("name"),
+  subscribedAt: integer("subscribed_at", { mode: "timestamp" }).notNull(),
+  confirmed: integer("confirmed", { mode: "boolean" }).default(false).notNull(),
+});

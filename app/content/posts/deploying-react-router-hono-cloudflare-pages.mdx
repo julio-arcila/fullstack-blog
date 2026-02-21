@@ -168,14 +168,61 @@ export default await createHonoServer({
 ## Step 4: Create entry.server.tsx (Critical!)
 
 <p>
-  This is the gotcha that will cost you hours if you miss it. React Router's
-  <strong> default</strong> entry server uses{" "}
-  <code>renderToPipeableStream</code> — a <strong>Node.js-only</strong> API
-  that does not exist in Cloudflare Workers.
+  This is the single most important file for Cloudflare deployment — and the
+  gotcha that will cost you hours if you miss it. Let's understand exactly what
+  it does and why it's needed.
+</p>
+
+### What is entry.server.tsx?
+
+<p>
+  When a user requests a page, React Router calls this file to render your
+  entire React component tree into HTML on the server. It's the bridge between
+  your React components and the raw HTTP Response that gets sent to the browser.
 </p>
 <p>
-  You must create <code>app/entry.server.tsx</code> using{" "}
-  <code>renderToReadableStream</code> (Web Streams API):
+  React Router invokes your exported <code>handleRequest</code> function
+  with five arguments:
+</p>
+
+<ul>
+  <li><strong><code>request</code></strong> — the incoming HTTP Request object (standard Web API)</li>
+  <li><strong><code>responseStatusCode</code></strong> — the initial status code (200, 404, etc.) determined by your loaders</li>
+  <li><strong><code>responseHeaders</code></strong> — headers to include in the response</li>
+  <li><strong><code>routerContext</code></strong> — the resolved route tree, loader data, and action results</li>
+  <li><strong><code>loadContext</code></strong> — your custom context from <code>getLoadContext</code> in server.ts (Cloudflare bindings live here)</li>
+</ul>
+
+### Why the default doesn't work on Cloudflare
+
+<p>
+  React Router's <strong>default</strong> entry server uses{" "}
+  <code>renderToPipeableStream</code> from <code>react-dom/server</code>.
+  This function returns a <strong>Node.js Readable Stream</strong> — a
+  stream type that relies on Node's internal <code>stream</code> module.
+</p>
+<p>
+  Cloudflare Workers run on the <strong>V8 isolate runtime</strong>, not
+  Node.js. They support the <strong>Web Streams API</strong> (
+  <code>ReadableStream</code>, <code>WritableStream</code>) but do NOT
+  support Node.js streams. When the worker tries to call{" "}
+  <code>renderToPipeableStream</code>, it throws:
+</p>
+
+```
+TypeError: (0 , import_server.renderToPipeableStream) is not a function
+```
+
+<p>
+  The fix is to use <code>renderToReadableStream</code> instead, which
+  returns a standard <strong>Web ReadableStream</strong> that Cloudflare
+  Workers natively support.
+</p>
+
+### The implementation
+
+<p>
+  Create <code>app/entry.server.tsx</code>:
 </p>
 
 ```tsx
@@ -217,11 +264,49 @@ export default async function handleRequest(
 }
 ```
 
+### Line-by-line breakdown
+
+<p>
+  <strong><code>renderToReadableStream</code></strong> — renders the{" "}
+  <code>&lt;ServerRouter&gt;</code> component tree into a{" "}
+  <code>ReadableStream</code>. This is the Web Streams equivalent of
+  Node's <code>renderToPipeableStream</code>. It starts streaming HTML
+  chunks immediately as Suspense boundaries resolve.
+</p>
+<p>
+  <strong><code>signal: request.signal</code></strong> — connects the
+  render lifecycle to the request's abort signal. If the client disconnects
+  mid-render, the stream is automatically cancelled, freeing up CPU time
+  on the worker.
+</p>
+<p>
+  <strong><code>onError</code></strong> — catches any rendering errors
+  (like a loader throwing, or a component crashing during SSR). It logs the
+  error and upgrades the response to a 500 status code.
+</p>
+<p>
+  <strong><code>isbot()</code> check</strong> — this is the SEO-critical
+  part. For regular users, the response starts streaming immediately (fast
+  TTFB). But for search engine crawlers (Googlebot, Bingbot, etc.),{" "}
+  <code>await body.allReady</code> waits for the <strong>entire</strong>{" "}
+  page to finish rendering before sending any bytes. This ensures crawlers
+  see the complete HTML content for proper indexing, while real users get
+  the fastest possible response.
+</p>
+<p>
+  <strong><code>new Response(body, ...)</code></strong> — wraps the
+  ReadableStream into a standard Web API Response object. This is what
+  Cloudflare Workers' <code>fetch</code> handler returns to the edge
+  network.
+</p>
+
 <blockquote>
   <p>
     Without this file, you will see{" "}
-    <code>TypeError: renderToPipeableStream is not a function</code> in your
-    Cloudflare deployment logs and a blank "Unexpected Server Error" page.
+    <code>TypeError: renderToPipeableStream is not a function</code> in
+    your Cloudflare deployment logs and a blank "Unexpected Server Error"
+    page. Every non-Node.js deployment target (Cloudflare, Deno, Bun Workers)
+    requires this file.
   </p>
 </blockquote>
 

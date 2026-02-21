@@ -4,6 +4,10 @@ import { motion, useScroll, useSpring } from "framer-motion";
 import { ArrowLeft, Calendar, Clock } from "lucide-react";
 import { Container } from "~/components/Container";
 import { getPostBySlug } from "~/data/posts";
+import { PostMetrics } from "~/components/PostMetrics";
+import { NewsletterSubscribe } from "~/components/NewsletterSubscribe";
+import { AdPlacement } from "~/components/AdPlacement";
+import { SupportWidget } from "~/components/SupportWidget";
 
 export async function loader({ params }: Route.LoaderArgs) {
   const post = getPostBySlug(params.slug);
@@ -84,6 +88,29 @@ export default function Post() {
             >
               {MDXContent ? <MDXContent /> : null}
             </div>
+
+            {/* Ad Placement: swap fallback for Carbon Ads once approved */}
+            <AdPlacement
+              fallback={{
+                title: "Build your next project on Cloudflare",
+                description: "Deploy full-stack apps globally with Workers, D1, and R2. Start for free.",
+                ctaText: "Try Cloudflare Workers",
+                ctaUrl: "https://workers.cloudflare.com",
+                sponsor: "Cloudflare",
+              }}
+            />
+
+            {/* Post Metrics: Views & Likes */}
+            <PostMetrics slug={post.slug} />
+
+            {/* Support the Author */}
+            <SupportWidget
+              username="julio-arcila"
+              platform="buymeacoffee"
+            />
+
+            {/* Newsletter CTA */}
+            <NewsletterSubscribe />
           </motion.div>
         </Container>
       </article>
