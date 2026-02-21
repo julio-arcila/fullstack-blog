@@ -1,0 +1,447 @@
+---
+title: "Step-by-Step: Deploying React Router v7 + Hono to Cloudflare Pages"
+excerpt: "A battle-tested guide to deploying a React Router v7 app with a custom Hono server to Cloudflare Pages — covering every gotcha, from Vite plugins to entry.server.tsx."
+date: "Feb 21, 2026"
+readTime: "12 min read"
+category: "DevOps"
+---
+
+<p className="lead">
+  After wrestling with Cloudflare Pages deployments for a full day, I've
+  distilled the entire process into a clean, reproducible guide. Every pitfall
+  documented here is one I hit personally — so you don't have to.
+</p>
+
+## Why This Stack?
+
+<p>
+  React Router v7 gives us Remix-style loaders and actions built on standard Web
+  APIs. Hono gives us an ultra-fast, edge-native HTTP server with middleware,
+  JWT, and cookie support. Cloudflare Pages gives us globally distributed
+  hosting with D1, R2, KV, and Workers AI — all at the edge.
+</p>
+<p>
+  The challenge? Getting all three to play together during the build and
+  deploy process. Here's the exact configuration that works.
+</p>
+
+---
+
+## Step 1: Initialize the Project
+
+<p>Start with a fresh React Router v7 project:</p>
+
+```bash
+npx create-react-router@latest my-app
+cd my-app
+```
+
+<p>Install the core dependencies:</p>
+
+```bash
+# Production deps
+bun add hono react-router-hono-server drizzle-orm
+
+# Dev deps
+bun add -D @cloudflare/workers-types miniflare wrangler
+```
+
+<p>
+  <strong>Key insight:</strong> <code>react-router-hono-server</code> is NOT a
+  dev dependency. It creates the actual Hono server used in production.
+</p>
+
+---
+
+## Step 2: Configure Vite
+
+<p>
+  This is where most tutorials fall short. The Vite config must use{" "}
+  <code>reactRouterHonoServer</code> with <code>runtime: "cloudflare"</code>.
+  This single flag handles all the SSR bundling, module externalization, and
+  worker-compatible output automatically.
+</p>
+
+```typescript
+// vite.config.ts
+import { reactRouter } from "@react-router/dev/vite";
+import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from "vite";
+import tsconfigPaths from "vite-tsconfig-paths";
+import { reactRouterHonoServer } from "react-router-hono-server/dev";
+
+export default defineConfig({
+  server: { port: 3000 },
+  plugins: [
+    reactRouterHonoServer({
+      runtime: "cloudflare",
+      serverEntryPoint: "./server.ts",
+    }),
+    tailwindcss(),
+    reactRouter(),
+    tsconfigPaths(),
+  ],
+});
+```
+
+<blockquote>
+  <p>
+    <strong>⚠️ Do NOT use <code>@cloudflare/vite-plugin</code> alongside
+    <code>react-router-hono-server</code>.</strong> The Cloudflare Vite plugin
+    only compiles React Router's internal virtual modules — it completely
+    ignores your <code>server.ts</code> Hono entrypoint, meaning your API
+    routes, middleware, and auth logic are silently dropped from the build.
+  </p>
+</blockquote>
+
+---
+
+## Step 3: Create the Hono Server
+
+<p>
+  Create <code>server.ts</code> at the project root. Import{" "}
+  <code>createHonoServer</code> from the Cloudflare adapter:
+</p>
+
+```typescript
+// server.ts
+import { Hono } from "hono";
+import { createHonoServer } from "react-router-hono-server/cloudflare";
+import { getCookie, setCookie } from "hono/cookie";
+import { sign, verify } from "hono/jwt";
+
+type Env = {
+  DB: D1Database;
+  JWT_SECRET: string;
+};
+
+type Variables = {
+  user: any;
+};
+
+const app = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// Auth middleware
+app.use("*", async (c, next) => {
+  const token = getCookie(c, "auth_token");
+  if (token) {
+    try {
+      const payload = await verify(token, c.env.JWT_SECRET, "HS256");
+      c.set("user", payload);
+    } catch (e) {
+      // Invalid token — continue without user
+    }
+  }
+  await next();
+});
+
+// Your API routes go here
+app.post("/api/auth/login", async (c) => {
+  // ... login logic
+});
+
+// Export the server — createHonoServer wires up React Router automatically
+export default await createHonoServer({
+  app,
+  getLoadContext(c, options) {
+    return {
+      cloudflare: {
+        env: c.env as any,
+        ctx: c.executionCtx,
+        user: c.get("user"),
+      },
+    };
+  },
+});
+```
+
+<p>
+  <strong>What <code>createHonoServer</code> does:</strong> It attaches a
+  catch-all route that delegates to React Router's request handler, passing
+  your Cloudflare bindings through <code>getLoadContext</code>. It also
+  correctly exports the <code>fetch</code> handler that Cloudflare Workers
+  expect.
+</p>
+
+---
+
+## Step 4: Create entry.server.tsx (Critical!)
+
+<p>
+  This is the gotcha that will cost you hours if you miss it. React Router's
+  <strong> default</strong> entry server uses{" "}
+  <code>renderToPipeableStream</code> — a <strong>Node.js-only</strong> API
+  that does not exist in Cloudflare Workers.
+</p>
+<p>
+  You must create <code>app/entry.server.tsx</code> using{" "}
+  <code>renderToReadableStream</code> (Web Streams API):
+</p>
+
+```tsx
+// app/entry.server.tsx
+import type { AppLoadContext, EntryContext } from "react-router";
+import { ServerRouter } from "react-router";
+import { renderToReadableStream } from "react-dom/server";
+import { isbot } from "isbot";
+
+export default async function handleRequest(
+  request: Request,
+  responseStatusCode: number,
+  responseHeaders: Headers,
+  routerContext: EntryContext,
+  _loadContext: AppLoadContext
+) {
+  const userAgent = request.headers.get("user-agent");
+  const body = await renderToReadableStream(
+    <ServerRouter context={routerContext} url={request.url} />,
+    {
+      signal: request.signal,
+      onError(error: unknown) {
+        console.error(error);
+        responseStatusCode = 500;
+      },
+    }
+  );
+
+  if (isbot(userAgent || "")) {
+    await body.allReady;
+  }
+
+  responseHeaders.set("Content-Type", "text/html");
+
+  return new Response(body, {
+    headers: responseHeaders,
+    status: responseStatusCode,
+  });
+}
+```
+
+<blockquote>
+  <p>
+    Without this file, you will see{" "}
+    <code>TypeError: renderToPipeableStream is not a function</code> in your
+    Cloudflare deployment logs and a blank "Unexpected Server Error" page.
+  </p>
+</blockquote>
+
+---
+
+## Step 5: Configure react-router.config.ts
+
+<p>Enable the Vite Environment API for proper Cloudflare Workers support:</p>
+
+```typescript
+// react-router.config.ts
+import type { Config } from "@react-router/dev/config";
+
+export default {
+  ssr: true,
+  future: {
+    v8_viteEnvironmentApi: true,
+  },
+} satisfies Config;
+```
+
+---
+
+## Step 6: Configure wrangler.toml
+
+<p>
+  Create <code>wrangler.toml</code> at the project root. The key setting is{" "}
+  <code>pages_build_output_dir</code> — without it, Cloudflare Pages ignores
+  the entire configuration file (including your D1/KV/R2 bindings).
+</p>
+
+```toml
+name = "my-app"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "./build/client"
+
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "my-db"
+database_id = "your-database-id-here"
+
+# KV Namespace
+[[kv_namespaces]]
+binding = "CACHE"
+id = "your-kv-namespace-id"
+
+# R2 Bucket
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "my-media-bucket"
+```
+
+<p>
+  <strong>Important:</strong> Set <code>compatibility_date</code> to{" "}
+  <code>"2024-09-23"</code> or later. This enables native <code>node:</code>{" "}
+  import resolution, which React DOM and Hono depend on.
+</p>
+
+---
+
+## Step 7: Set Up the Build Script
+
+<p>
+  The <code>react-router build</code> command outputs to{" "}
+  <code>build/client/</code> and <code>build/server/</code>. Cloudflare Pages
+  expects a <code>_worker.js</code> file inside the client output directory.
+</p>
+
+```json
+{
+  "scripts": {
+    "build": "react-router build && cp build/server/index.js build/client/_worker.js",
+    "dev": "react-router dev",
+    "start": "wrangler dev"
+  }
+}
+```
+
+<p>
+  If the <code>@cloudflare/vite-plugin</code> auto-generates a{" "}
+  <code>wrangler.json</code> inside <code>build/client/</code>, it will
+  override your <code>wrangler.toml</code> and break the deploy. Add cleanup:
+</p>
+
+```json
+{
+  "scripts": {
+    "build": "react-router build && rm -rf build/client/wrangler.json .wrangler/deploy/config.json && cp build/server/index.js build/client/_worker.js"
+  }
+}
+```
+
+---
+
+## Step 8: Add .gitignore Entries
+
+<p>
+  Make sure the Wrangler cache and build artifacts are excluded from version
+  control:
+</p>
+
+```gitignore
+# Add to .gitignore
+/.wrangler/
+/build/
+```
+
+---
+
+## Step 9: Remove package-lock.json
+
+<p>
+  If you're using <code>bun</code> as your package manager, delete{" "}
+  <code>package-lock.json</code>. Cloudflare Pages detects it and runs{" "}
+  <code>npm ci</code> instead of <code>bun install</code>, which skips{" "}
+  <code>devDependencies</code> and causes <code>react-router: command not found</code>{" "}
+  errors during the build.
+</p>
+
+```bash
+rm package-lock.json
+```
+
+---
+
+## Step 10: Deploy
+
+<p>Build and deploy with a single command:</p>
+
+```bash
+bun run build
+bunx wrangler pages deploy build/client --commit-dirty=true
+```
+
+<p>You should see output like:</p>
+
+```
+✨ Compiled Worker successfully
+✨ Uploading Worker bundle
+🌎 Deploying...
+✨ Deployment complete! Take a peek over at https://abc123.my-app.pages.dev
+```
+
+---
+
+## Common Errors & Solutions
+
+<h3><code>UNRESOLVED_IMPORT</code> — bare module imports in _worker.js</h3>
+<p>
+  <strong>Cause:</strong> Vite left <code>import "hono"</code> as an external
+  dependency instead of bundling it.
+</p>
+<p>
+  <strong>Fix:</strong> Use <code>runtime: "cloudflare"</code> in the{" "}
+  <code>reactRouterHonoServer</code> plugin config. This forces Vite to bundle
+  all dependencies into the worker.
+</p>
+
+<h3><code>renderToPipeableStream is not a function</code></h3>
+<p>
+  <strong>Cause:</strong> Using React Router's default Node.js entry server in
+  a Workers environment.
+</p>
+<p>
+  <strong>Fix:</strong> Create <code>app/entry.server.tsx</code> with{" "}
+  <code>renderToReadableStream</code> as shown in Step 4.
+</p>
+
+<h3><code>No such module "assets/hono"</code></h3>
+<p>
+  <strong>Cause:</strong> Dependencies were externalized into separate chunks
+  that Cloudflare can't resolve.
+</p>
+<p>
+  <strong>Fix:</strong> Ensure the Vite plugin uses{" "}
+  <code>runtime: "cloudflare"</code> to produce a single self-contained bundle.
+</p>
+
+<h3><code>wrangler.json</code> overriding <code>wrangler.toml</code></h3>
+<p>
+  <strong>Cause:</strong> The <code>@cloudflare/vite-plugin</code> auto-generates
+  a <code>wrangler.json</code> that takes precedence.
+</p>
+<p>
+  <strong>Fix:</strong> Remove it in the build script:{" "}
+  <code>rm -rf build/client/wrangler.json</code>.
+</p>
+
+<h3><code>react-router: command not found</code> on Cloudflare Pages CI</h3>
+<p>
+  <strong>Cause:</strong> <code>package-lock.json</code> triggers{" "}
+  <code>npm ci</code> which skips devDependencies.
+</p>
+<p>
+  <strong>Fix:</strong> Delete <code>package-lock.json</code> so Cloudflare
+  uses <code>bun install</code> instead.
+</p>
+
+---
+
+## Final File Structure
+
+```
+my-app/
+├── app/
+│   ├── entry.server.tsx    ← Web Streams (renderToReadableStream)
+│   ├── root.tsx
+│   └── routes/
+├── server.ts               ← Hono server with createHonoServer()
+├── vite.config.ts           ← reactRouterHonoServer({ runtime: "cloudflare" })
+├── wrangler.toml            ← pages_build_output_dir + bindings
+├── react-router.config.ts   ← v8_viteEnvironmentApi: true
+└── package.json             ← build script with _worker.js copy
+```
+
+<p>
+  This configuration gives you a fully server-rendered React app with a custom
+  Hono API layer, running globally on Cloudflare's edge network with native
+  access to D1, R2, KV, and Workers AI. Zero cold starts. Sub-50ms responses
+  worldwide.
+</p>
