@@ -35,9 +35,9 @@
     "three": "^0.183.1"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.25.2",
     "@cloudflare/workers-types": "^4.20260227.0",
     "@hono/vite-dev-server": "^0.25.0",
-    "@hono/vite-cloudflare-pages": "^0.4.3",
     "@react-router/dev": "^7.13.0",
     "@tailwindcss/vite": "^4.1.13",
     "@types/node": "^22",

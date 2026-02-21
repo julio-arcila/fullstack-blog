@@ -121,11 +121,8 @@ app.post("/api/admin/generate-meta", async (c) => {
 
 // React Router handler
 app.all("*", async (c) => {
-  const build =
-    process.env.NODE_ENV === "development"
-      ? await import("virtual:react-router/server-build" as any)
-      : // @ts-ignore
-        await import("./build/server/index.js");
+  // In Vite/Cloudflare environments we can use the virtual module for both dev and prod
+  const build = await import("virtual:react-router/server-build" as any);
 
   const handler = createRequestHandler(build as any, process.env.NODE_ENV);
   const loadContext = {

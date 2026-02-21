@@ -3,7 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import devServer, { defaultOptions } from "@hono/vite-dev-server";
-import pages from "@hono/vite-cloudflare-pages";
+import { cloudflare } from "@cloudflare/vite-plugin";
 import mdx from "@mdx-js/rollup";
 import remarkFrontmatter from "remark-frontmatter";
 import remarkMdxFrontmatter from "remark-mdx-frontmatter";
@@ -11,7 +11,7 @@ import remarkMdxFrontmatter from "remark-mdx-frontmatter";
 export default defineConfig({
   server: { port: 3000 },
   plugins: [
-    pages({ outputDir: "./build/client", entry: "server.ts" }),
+    cloudflare(),
     devServer({
       entry: "server.ts",
       exclude: [
