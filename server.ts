@@ -12,6 +12,7 @@ import type {
   D1Database,
   R2Bucket,
   KVNamespace,
+  ExecutionContext,
 } from "@cloudflare/workers-types";
 
 // Type definition for Env binding
@@ -121,7 +122,10 @@ app.post("/api/admin/generate-meta", async (c) => {
 
 import { createHonoServer } from "react-router-hono-server/cloudflare";
 
-export default await createHonoServer({
+// Export a wrapped Hono app using a lazy initialization pattern
+// This prevents Vite from evaluating the `react-router-hono-server` virtual modules
+// too early during the client build phase on Cloudflare Pages.
+const server = createHonoServer({
   app,
   getLoadContext: (c, options) => {
     return {
@@ -133,3 +137,10 @@ export default await createHonoServer({
     };
   },
 });
+
+export default {
+  fetch: async (request: Request, env: Env, ctx: ExecutionContext) => {
+    const s = await server;
+    return s.fetch(request, env, ctx);
+  },
+};
