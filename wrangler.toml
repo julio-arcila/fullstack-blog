@@ -4,9 +4,9 @@ compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "./build/client"
 # D1 Database binding
 [[d1_databases]]
-binding = "DB"
+binding = "fullstack_blog_db"
 database_name = "fullstack-blog-db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "08a8543d-4538-4620-8912-1b2af65e2ace"
 
 # R2 Bucket binding
 [[r2_buckets]]
@@ -16,7 +16,7 @@ bucket_name = "fullstack-blog-media"
 # KV Cache binding
 [[kv_namespaces]]
 binding = "CACHE"
-id = "00000000000000000000000000000000"
+id = "4020f0e4252e466490305acf6317f6e5"
 
 # Workers AI binding
 [ai]
