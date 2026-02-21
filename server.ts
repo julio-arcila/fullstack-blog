@@ -119,20 +119,17 @@ app.post("/api/admin/generate-meta", async (c) => {
   }
 });
 
-// React Router handler
-app.all("*", async (c) => {
-  // In Vite/Cloudflare environments we can use the virtual module for both dev and prod
-  const build = await import("virtual:react-router/server-build" as any);
+import { createHonoServer } from "react-router-hono-server/cloudflare";
 
-  const handler = createRequestHandler(build as any, process.env.NODE_ENV);
-  const loadContext = {
-    cloudflare: {
-      env: c.env,
-      ctx: c.executionCtx,
-      user: c.get("user"), // Pass user context to Remix Loaders
-    },
-  };
-  return handler(c.req.raw, loadContext);
+export default await createHonoServer({
+  app,
+  getLoadContext: (c, options) => {
+    return {
+      cloudflare: {
+        env: c.env as any,
+        ctx: c.executionCtx,
+        user: c.get("user"), // Pass user context to Remix Loaders
+      },
+    };
+  },
 });
-
-export default app;
