@@ -1,0 +1,31 @@
+---
+title: "Building a Next-Gen Fullstack App: React Router v7, Hono, and Cloudflare"
+excerpt: "An in-depth look at why I chose this specific stack for 2026, dropping Next.js for standard web APIs and edge computing."
+date: "Feb 20, 2026"
+readTime: "8 min read"
+category: "Architecture"
+---
+
+<p class="lead">Why I left Next.js behind and fully embraced standard web APIs. The landscape of frontend development is shifting towards leaner, faster, and more standard-compliant tools.</p>
+
+<h2>The Problem with Heavy Frameworks</h2>
+<p>Over the past few years, meta-frameworks have grown increasingly complex. While they offer incredible out-of-the-box features, the cognitive load and vendor lock-in have become significant trade-offs.</p>
+<p>You often find yourself fighting the framework rather than building the product. Hydration issues, complex caching layers, and proprietary routing systems make long-term maintenance fundamentally harder.</p>
+
+<h2>Embracing React Router v7</h2>
+<p>React Router v7 represents a massive leap forward. By merging with the Remix architecture, it provides a phenomenal data loading and mutation model that leans entirely on standard web Request and Response objects.</p>
+<ul>
+  <li><strong>Standard APIs:</strong> No magic <code>getServerSideProps</code>. Just standard <code>loader</code> and <code>action</code> functions.</li>
+  <li><strong>Nested Routing:</strong> Granular error boundaries and loading states without full-page reloads.</li>
+  <li><strong>Future Proof:</strong> Built on standards that will survive the next hype cycle.</li>
+</ul>
+
+<h2>The Power of Hono & Cloudflare</h2>
+<p>By pairing React Router with Hono, we get an ultra-fast, edge-ready backend. Cloudflare Workers allow this entire application to run geographically close to every user on earth with virtually zero cold starts.</p>
+<p>Combine this with Cloudflare D1 (Serverless SQLite) and you have a completely globally distributed, ACID-compliant database with almost zero infrastructure management.</p>
+
+<blockquote>
+  <p>The future of web development isn't about building bigger frameworks. It's about combining powerful, focused tools that adhere strictly to web standards.</p>
+</blockquote>
+
+<p>This blog itself is built on this exact stack. The navigation is instant, the deployments take seconds, and the global edge performance is unmatched.</p>

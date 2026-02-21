@@ -1,0 +1,52 @@
+{
+  "name": "fullstack-blog",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "react-router build",
+    "dev": "react-router dev",
+    "start": "react-router-serve ./build/server/index.js",
+    "typecheck": "react-router typegen && tsc"
+  },
+  "dependencies": {
+    "@cloudflare/kv-asset-handler": "^0.4.2",
+    "@libsql/client": "^0.17.0",
+    "@mdx-js/react": "^3.1.1",
+    "@mdx-js/rollup": "^3.1.1",
+    "@react-router/cloudflare": "^7.13.0",
+    "@react-router/node": "7.12.0",
+    "@react-router/serve": "7.12.0",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
+    "@tailwindcss/typography": "^0.5.19",
+    "@types/three": "^0.183.1",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.1",
+    "framer-motion": "^12.34.3",
+    "hono": "^4.12.0",
+    "isbot": "^5.1.31",
+    "lucide-react": "^0.575.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-router": "7.12.0",
+    "remark-frontmatter": "^5.0.0",
+    "remark-mdx-frontmatter": "^5.2.0",
+    "tailwind-merge": "^3.5.0",
+    "three": "^0.183.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260227.0",
+    "@hono/vite-dev-server": "^0.25.0",
+    "@react-router/dev": "7.12.0",
+    "@tailwindcss/vite": "^4.1.13",
+    "@types/node": "^22",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "drizzle-kit": "^0.31.9",
+    "tailwindcss": "^4.1.13",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.7",
+    "vite-tsconfig-paths": "^5.1.4",
+    "wrangler": "^4.67.0"
+  }
+}

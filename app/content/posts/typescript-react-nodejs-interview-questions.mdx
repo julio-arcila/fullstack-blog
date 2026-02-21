@@ -1,0 +1,345 @@
+---
+title: "40 Essential Full Stack TypeScript Interview Questions & Answers (2025)"
+excerpt: "A comprehensive guide covering TypeScript Core, modern React patterns, Node.js backend servers, and Fullstack Architecture."
+date: "Feb 21, 2026"
+readTime: "25 min read"
+category: "Career"
+---
+
+import { MentalMap, QuestionNode } from "../../components/MentalMap";
+
+<p className="lead">
+  Here is a definitive, well-rounded set of interview questions and answers for
+  a Full Stack Developer position using TypeScript, React, and Node.js. Grouped
+  by category and increasing in difficulty.
+</p>
+
+<MentalMap title="1. TypeScript Core">
+
+<QuestionNode title="What are the main reasons to choose TypeScript over plain JavaScript in a full-stack project?">
+  <p>
+    TypeScript provides static typing, catching errors at compile time rather
+    than runtime. In a full-stack context, sharing types between the frontend
+    and backend (e.g., API request/response typing) drastically reduces
+    integration bugs and improves refactoring confidence.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="Explain the difference between interface and type in TypeScript." example={
+<div className="bg-black/50 rounded-lg p-5 font-mono text-sm text-neutral-300 overflow-x-auto whitespace-pre border border-white/5">
+  <pre><code className="language-typescript">{`interface Animal { name: string; }
+interface Bear extends Animal { honey: boolean; }
+
+type AnimalType = { name: string; };
+type BearType = AnimalType & { honey: boolean; };
+// Types can also be unions: type Status = 'active' | 'inactive';`}</code></pre>
+</div>
+}>
+  <p>
+    <code>interface</code> is primarily used for defining object shapes and
+    supports declaration merging, making it ideal for public APIs.{" "}
+    <code>type</code> aliases can define union types, primitives, and mapped
+    types. Modern codebases prefer <code>type</code> for complex component props
+    and utility transformations because of its flexibility.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="What is type inference?">
+  <p>
+    Type inference is TypeScript's ability to deduce the type of a variable
+    automatically. It helps by automatically typing the return of a simple hook
+    or the parameters in <code>.map((item) =&gt; ...)</code>. It can hurt if it
+    infers a wider type (like <code>string</code>) instead of a literal type
+    without using <code>as const</code>.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="How do you handle exhaustive type checking?">
+  <p>
+    By using a <code>switch</code> statement over a discriminated union and
+    assigning the <code>default</code> case to a variable of type{" "}
+    <code>never</code>. If a new member is added to the union, TypeScript throws
+    an error because it cannot be assigned to <code>never</code>.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="Explain generics in TypeScript with an example." example={
+<div className="bg-black/50 rounded-lg p-5 font-mono text-sm text-neutral-300 overflow-x-auto whitespace-pre border border-white/5">
+  <pre><code className="language-typescript">{`function identity<T>(arg: T): T {
+  return arg;
+}
+
+let output = identity<string>('myString');`}</code></pre>
+</div>
+}>
+```typescript
+// React Component example
+const List = <ItemType,>({ items, renderItem }: { items: ItemType[], renderItem: (item: ItemType) => ReactNode }) => (
+  <ul>{items.map(renderItem)}</ul>
+);
+```
+</QuestionNode>
+
+<QuestionNode title="What are utility types? Name five.">
+  <p>
+    Built-in types to facilitate type transformations:{" "}
+    <code>Partial&lt;T&gt;</code> (makes properties optional),{" "}
+    <code>Pick&lt;T, K&gt;</code> (extracts subset of properties),{" "}
+    <code>Omit&lt;T, K&gt;</code> (removes subset),{" "}
+    <code>Record&lt;K, T&gt;</code> (constructs map type),{" "}
+    <code>NonNullable&lt;T&gt;</code> (removes null/undefined).
+  </p>
+</QuestionNode>
+
+<QuestionNode title="How do you type a React functional component with props and children in 2025?">
+<p>Use explicit props typing instead of <code>React.FC</code>.</p>
+```typescript
+interface Props { title: string; children?: React.ReactNode; }
+export function MyComponent({ title, children }: Props) { return <div>{title}{children}</div>; }
+```
+</QuestionNode>
+
+<QuestionNode title="What are const assertions and template literal types?">
+  <p>
+    <code>as const</code> prevents literal widening. Template literal types
+    build strings dynamically:{" "}
+    <code>
+      type Event = 'click' | 'hover'; type Handler =
+      \`on$&#123;Capitalize&lt;Event&gt;&#125;\`;
+    </code>
+  </p>
+</QuestionNode>
+
+<QuestionNode title="How would you type an async API response that can either succeed or fail?">
+```typescript
+type ApiResponse<T> = | { success: true; data: T } | { success: false; error: string; statusCode: number };
+```
+</QuestionNode>
+
+<QuestionNode title="Explain declaration merging and module augmentation." example={
+<div className="bg-black/50 rounded-lg p-5 font-mono text-sm text-neutral-300 overflow-x-auto whitespace-pre border border-white/5">
+  <pre><code className="language-typescript">{`interface Box { height: number; }
+interface Box { width: number; }
+// Merged: { height: number; width: number; }
+
+declare module 'express-serve-static-core' {
+  interface Request {
+    user?: User;
+  }
+}`}</code></pre>
+</div>
+}>
+  <p>
+    Declaration merging allows multiple identically named interfaces to merge
+    their properties. Module augmentation allows adding new types to existing
+    3rd-party modules (like adding a <code>user</code> object to an Express{" "}
+    <code>Request</code>).
+  </p>
+</QuestionNode>
+
+</MentalMap>
+
+<MentalMap title="2. React + TypeScript (Frontend)">
+
+<QuestionNode title="How do you type useState and useReducer?">
+  <p>
+    Pass the type to the generic type parameter:{" "}
+    <code>const [user, setUser] = useState&lt;User | null&gt;(null);</code>. For{" "}
+    <code>useReducer</code>, define a discriminated union for the Action type,
+    then pass them:{" "}
+    <code>
+      useReducer&lt;Reducer&lt;State, Action&gt;&gt;(reducer, initialState)
+    </code>
+  </p>
+</QuestionNode>
+
+<QuestionNode title="Explain how to properly type custom React hooks." example={
+<div className="bg-black/50 rounded-lg p-5 font-mono text-sm text-neutral-300 overflow-x-auto whitespace-pre border border-white/5">
+  <pre><code className="language-typescript">{`function useCounter(initial: number) {
+  const [count, setCount] = useState(initial);
+  const increment = () => setCount(c => c + 1);
+  return [count, increment] as const; // Infers strict tuple [number, () => void]
+}`}</code></pre>
+</div>
+}>
+  <p>
+    Infer the return type from what the hook returns, or explicitly define it.
+    When returning a tuple, use <code>as const</code> so TypeScript doesn't
+    widen it to an array: <code>return [value, setValue] as const;</code>
+  </p>
+</QuestionNode>
+
+<QuestionNode title="Differences between ReactNode, JSX.Element, and ReactElement?">
+  <p>
+    <code>ReactNode</code> is the broadest (anything renderable).{" "}
+    <code>ReactElement</code> is an object created by{" "}
+    <code>React.createElement</code>. <code>JSX.Element</code> is a global alias
+    for <code>ReactElement</code> representing a typed JSX tag.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="How do you type event handlers?">
+  <p>
+    Use React's generic event types:{" "}
+    <code>React.ChangeEvent&lt;HTMLInputElement&gt;</code>,{" "}
+    <code>React.MouseEvent&lt;HTMLButtonElement&gt;</code>, etc.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="What problems can occur with React.FC?">
+  <p>
+    Historically it implicitly included <code>children</code>, hiding whether a
+    component actually accepted them. Using standard function declarations with
+    explicitly typed parameters is clearer and better supports Generics.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="How would you implement typed Context + Provider + Custom Hook?">
+  <p>
+    Create the context with{" "}
+    <code>createContext&lt;ContextType | undefined&gt;(undefined)</code>. In the
+    custom hook, check if the value is <code>undefined</code> and throw an error
+    if used outside the provider, allowing TypeScript to narrow the return type
+    to <code>ContextType</code>.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="Controlled vs uncontrolled components with TypeScript?">
+  <p>
+    Controlled relies on props/state (
+    <code>value=&#123;state&#125; onChange=&#123;handleChange&#125;</code>).
+    Uncontrolled relies on refs accessing the DOM directly (
+    <code>inputRef = useRef&lt;HTMLInputElement&gt;(null)</code>).
+  </p>
+</QuestionNode>
+
+<QuestionNode title="How do you type forwarded refs and imperative handle?">
+  <p>
+    Use <code>forwardRef&lt;RefType, PropsType&gt;</code> to type the ref and
+    props. Pass that matching <code>RefType</code> to{" "}
+    <code>useImperativeHandle&lt;RefType, RefType&gt;</code>.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="Typing third-party libraries lacking .d.ts files?">
+  <p>
+    Create a <code>declarations.d.ts</code> file and declare the module:{" "}
+    <code>declare module 'legacy-lib';</code>. Add specific types if needed
+    within the declaration.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="How do performance hooks interact with TypeScript?">
+  <p>
+    <code>useMemo</code> and <code>useCallback</code> use generic inference to
+    ensure the returned memoized values maintain strict typings matching their
+    inputs.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="Preferred way to handle forms in React + TypeScript?">
+  <p>
+    Using <code>react-hook-form</code> with a <code>zod</code> resolver,
+    providing deep end-to-end type safety from the validation schema straight to
+    the form's <code>onSubmit</code> payload.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="Implementing virtualized infinite scrolling with types?">
+  <p>
+    Use typed states for items. Type the virtualization library (like{" "}
+    <code>@tanstack/react-virtual</code>) items strictly using the source
+    array's element type to ensure correct row rendering.
+  </p>
+</QuestionNode>
+
+</MentalMap>
+
+<MentalMap title="3. Node.js + TypeScript (Backend)">
+
+<QuestionNode title="Setting up a modern Node.js + TS project?">
+  <p>
+    Use native ESM (<code>"type": "module"</code> in package.json,{" "}
+    <code>"module": "NodeNext"</code> in tsconfig). Use modern runners like{" "}
+    <code>tsx</code> or <code>bun</code> instead of heavy ts-node, and bundle
+    with <code>esbuild</code>.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="Express vs NestJS trade-offs for mid-to-large APIs?">
+  <p>
+    Express requires manual typing, routing, and structuring mapping files
+    manually. NestJS provides a strictly-typed, Angular-like OOP structure
+    natively built for scalable TS, utilizing decorators and dependency
+    injection.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="Typing Express request/response objects?">
+  <p>
+    Use Express's generic types:{" "}
+    <code>Request&lt;Params, ResBody, ReqBody, ReqQuery&gt;</code> and{" "}
+    <code>Response&lt;ResBody&gt;</code>.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="Structuring error handling in typed Express?">
+  <p>
+    Create a base <code>AppError</code> class extending <code>Error</code>.
+    Catch errors in a global error middleware that asserts the error format and
+    translates <code>AppError</code> instances into typed JSON responses.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="Typing async/await functions that can throw?">
+  <p>
+    Caught errors default to <code>unknown</code>. Use type guards (e.g.,{" "}
+    <code>if (error instanceof Error)</code>) inside catch blocks before safely
+    accessing <code>error.message</code>.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="Validating incoming request payloads?">
+  <p>
+    Use <code>Zod</code> or <code>Valibot</code>. Validate <code>req.body</code>{" "}
+    in a middleware, then infer the strictly typed TypeScript interface directly
+    from the validation schema to use identically in the controller.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="Typing ORMs like Prisma or Drizzle vs Query Builders?">
+  <p>
+    Prisma aggressively generates strict TypeScript types directly from the{" "}
+    <code>schema.prisma</code> file ensuring complete type safety. Drizzle
+    achieves similar end-to-end type safety directly within TypeScript itself
+    without a separate generation step.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="Testing properly typed TS backends?">
+  <p>
+    Use <code>Vitest</code> or <code>Jest</code> with <code>ts-jest</code>. Mock
+    dependencies firmly using typed mock functions (<code>vi.mock()</code>) to
+    rigorously assert inputs and outputs independently.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="Dependency Injection in plain TS vs Frameworks?">
+  <p>
+    Plain TS relies entirely on manually passing dependencies explicitly in
+    constructors (constructor injection). Frameworks heavily use robust
+    InversifyJS or natively embedded decorators to tightly resolve dependencies
+    transitively.
+  </p>
+</QuestionNode>
+
+<QuestionNode title="WebSockets and strictly typed real-time data?">
+  <p>
+    Shared <code>Todo</code> interface. Typed <code>ServerToClientEvents</code>{" "}
+    (e.g. <code>todoUpdated</code>). Frontend emits typed mutations while
+    leveraging Optimistic UI updates. Backend broadcasts the validated action to
+    connected scoped WebSocket rooms.
+  </p>
+</QuestionNode>
+
+</MentalMap>
